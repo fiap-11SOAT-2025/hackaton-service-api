@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIAP X - Processador de Vídeos</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; margin: 0; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        
+        /* Header Flexível */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px; }
+        .header h2 { color: #333; margin: 0; font-size: 1.5rem; display: flex; align-items: center; gap: 10px;}
+        
+        .user-info { display: flex; align-items: center; gap: 15px; }
+        .user-name { font-weight: bold; color: #007bff; font-size: 1.1em; }
+        
+        .upload-area { border: 2px dashed #ddd; padding: 30px; border-radius: 8px; margin-bottom: 30px; background: #fafafa; text-align: center; display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap;}
+        
+        /* Botões */
+        button { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-primary:hover { background: #0056b3; }
+        .btn-refresh { background: #6c757d; color: white; display: flex; align-items: center; gap: 5px; }
+        .btn-refresh:hover { background: #545b62; }
+        .btn-download { background: #28a745; color: white; text-decoration: none; padding: 6px 12px; border-radius: 4px; font-size: 14px; }
+        .btn-download:hover { background: #218838; }
+        .btn-logout { background: #dc3545; color: white; font-size: 14px; }
+        .btn-logout:hover { background: #c82333; }
+        
+        button:disabled { background: #ccc; cursor: not-allowed; }
+
+        /* Tabela */
+        .table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; background: white; }
+        th, td { text-align: left; padding: 15px; border-bottom: 1px solid #eee; }
+        th { background-color: #f8f9fa; color: #333; }
+        tr:hover { background-color: #f8f9fa; }
+
+        /* Badges de Status */
+        .status-badge { padding: 5px 10px; border-radius: 15px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
+        .status-PENDING { background: #fff3cd; color: #856404; }
+        .status-PROCESSING { background: #cce5ff; color: #004085; }
+        .status-DONE { background: #d4edda; color: #155724; }
+        .status-ERROR { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h2>🎬 FIAP X - Processador de Vídeos</h2>
+            <div class="user-info">
+                <span>Olá, <span id="userNameDisplay" class="user-name">Usuário</span></span>
+                <button onclick="logout()" class="btn-logout">Sair</button>
+            </div>
+        </div>
+
+        <p style="text-align: center; color: #666;">
+            Faça upload de seus vídeos e receba-os em ZIP com todos os frames extraídos!
+        </p>
+        <div class="upload-area">
+            <input type="file" id="videoFile" accept=".mp4,.avi,.mkv">
+            <button onclick="uploadVideo()" id="uploadBtn" class="btn-primary">🚀 Processar Vídeo</button>
+        </div>
+
+        <div class="table-header">
+            <h3>Meus Vídeos</h3>
+            <button onclick="loadVideos()" class="btn-refresh">🔄 Atualizar Lista</button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Arquivo</th>
+                    <th>Data de Envio</th>
+                    <th>Status</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody id="videoList">
+                <tr><td colspan="4" style="text-align: center; color: #888;">Carregando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        const username = localStorage.getItem('username');
+
+        // Validação inicial
+        if (!token) {
+            window.location.href = '/';
+        } else {
+            // Exibir nome do usuário
+            document.getElementById('userNameDisplay').innerText = username || 'Usuário';
+            loadVideos();
+        }
+
+        async function loadVideos() {
+            const tbody = document.getElementById('videoList');
+            tbody.style.opacity = '0.5'; 
+            
+            try {
+                const res = await fetch('/api/videos', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (res.status === 401) logout();
+                
+                const videos = await res.json();
+                
+                if (videos.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px;">Nenhum vídeo enviado ainda.</td></tr>';
+                } else {
+                    tbody.innerHTML = videos.map(v => `
+                        <tr>
+                            <td>${v.file_name}</td>
+                            <td>${new Date(v.created_at).toLocaleString()}</td>
+                            <td><span class="status-badge status-${v.status}">${getStatusLabel(v.status)}</span></td>
+                            <td>
+                                ${getActionButtons(v)}
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (e) {
+                console.error("Erro ao listar", e);
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: red;">Erro ao carregar lista.</td></tr>';
+            } finally {
+                tbody.style.opacity = '1';
+            }
+        }
+
+        function getStatusLabel(status) {
+            const labels = {
+                'PENDING': 'Na Fila',
+                'PROCESSING': 'Processando',
+                'DONE': 'Concluído',
+                'ERROR': 'Falha'
+            };
+            return labels[status] || status;
+        }
+
+        function getActionButtons(video) {
+            if (video.status === 'DONE') {
+                return `<button onclick="downloadVideo('${video.id}')" class="btn-download">⬇️ Baixar ZIP</button>`;
+            } else if (video.status === 'ERROR') {
+                return `<span style="color:red; font-size: 12px;" title="${video.error_message}">Erro no processamento</span>`;
+            } else {
+                return `<span style="color:#888; font-size: 12px;">Aguarde...</span>`;
+            }
+        }
+
+        async function uploadVideo() {
+            const fileInput = document.getElementById('videoFile');
+            const file = fileInput.files[0];
+            if (!file) return alert("Selecione um arquivo!");
+
+            const btn = document.getElementById('uploadBtn');
+            btn.disabled = true;
+            btn.innerText = "Enviando...";
+
+            const formData = new FormData();
+            formData.append('video', file);
+
+            try {
+                const res = await fetch('/api/upload', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+                
+                if (res.ok) {
+                    fileInput.value = "";
+                    alert("Upload realizado! O vídeo entrará na fila.");
+                    loadVideos();
+                } else {
+                    alert("Erro no upload");
+                }
+            } catch (e) {
+                alert("Erro de conexão");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "📤 Enviar Vídeo";
+            }
+        }
+
+        async function downloadVideo(id) {
+            try {
+                const res = await fetch(`/api/videos/${id}/download`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.download_url) {
+                    window.open(data.download_url, '_blank');
+                } else {
+                    alert("Erro ao gerar link");
+                }
+            } catch (e) {
+                alert("Erro ao baixar");
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('username');
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+
+services:
+  # 1. Banco de Dados
+  db:
+    image: postgres:15-alpine
+    container_name: hackaton-postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: fiapx_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d fiapx_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. LocalStack (AWS Mock)
+  localstack:
+    image: localstack/localstack:latest
+    container_name: hackaton-localstack
+    ports:
+      - "4566:4566"            # Porta única para todos os serviços AWS
+      - "4510-4559:4510-4559"  # Range de portas para serviços externos
+    environment:
+      - SERVICES=s3,sqs        # Ativar apenas S3 e SQS
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+    volumes:
+      - "./scripts/init-localstack.sh:/etc/localstack/init/ready.d/init-aws.sh" # Script de inicialização
+      - localstack_data:/var/lib/localstack
+
+  # 3. API
+  api:
+    build: ./
+    image: hackaton-service-api
+    container_name: hackaton-service-api
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=db
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=fiapx_db
+      - AWS_REGION=us-east-1
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_ACCESS_KEY_ID=teste
+      - AWS_SECRET_ACCESS_KEY=teste
+      - AWS_QUEUE_URL=http://localstack:4566/000000000000/video-processing-queue
+      - AWS_BUCKET=fiap-videos
+    depends_on:
+      db:
+        condition: service_healthy
+      localstack:
+        condition: service_started
+
+  # 4. Worker (Processador) 
+  worker:
+    build: ../hackaton-service-worker
+    image: hackaton-service-worker
+    container_name: hackaton-service-worker
+    environment:
+      - DB_HOST=db
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=fiapx_db
+      - AWS_REGION=us-east-1
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_ACCESS_KEY_ID=teste
+      - AWS_SECRET_ACCESS_KEY=teste
+      - AWS_QUEUE_URL=http://localstack:4566/000000000000/video-processing-queue
+      - AWS_BUCKET=fiap-videos
+    depends_on:
+      db:
+        condition: service_healthy
+      localstack:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  localstack_data:
+
