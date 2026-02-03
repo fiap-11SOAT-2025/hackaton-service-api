@@ -1,8 +1,8 @@
 package database
 
 import (
-	"fiapx-api/internal/entity"
-	"fiapx-api/internal/repository"
+	"hackaton-service-api/internal/entity"
+	"hackaton-service-api/internal/repository"
 	"gorm.io/gorm"
 )
 
@@ -32,6 +32,15 @@ func (r *UserRepositoryGorm) FindByUsername(username string) (*entity.User, erro
 func (r *UserRepositoryGorm) FindByEmail(email string) (*entity.User, error) {
 	var user entity.User
 	err := r.DB.Where("email = ?", email).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *UserRepositoryGorm) FindByID(id string) (*entity.User, error) {
+	var user entity.User
+	err := r.DB.First(&user, "id = ?", id).Error
 	if err != nil {
 		return nil, err
 	}

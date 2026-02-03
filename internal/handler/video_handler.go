@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"fiapx-api/internal/usecase"
+	"hackaton-service-api/internal/usecase"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

@@ -1,8 +1,8 @@
 package usecase
 
 import (
-	"fiapx-api/internal/entity"
-	"fiapx-api/internal/repository"
+	"hackaton-service-api/internal/entity"
+	"hackaton-service-api/internal/repository"
 	"fmt"
 	"mime/multipart"
 	"path/filepath"
@@ -16,20 +16,22 @@ type FileStorageService interface {
 }
 
 type QueueService interface {
-	SendMessage(message string) error
+	SendMessage(videoID, email string) error
 }
 
 type VideoUseCase struct {
 	Repo    repository.VideoRepository
+	UserRepo repository.UserRepository
 	Storage FileStorageService
 	Queue   QueueService
 }
 
-func NewVideoUseCase(repo repository.VideoRepository, storage FileStorageService, queue QueueService) *VideoUseCase {
+func NewVideoUseCase(repo repository.VideoRepository, userRepo repository.UserRepository, storage FileStorageService, queue QueueService) *VideoUseCase {
 	return &VideoUseCase{
-		Repo:    repo,
-		Storage: storage,
-		Queue:   queue,
+		Repo:     repo,
+        UserRepo: userRepo,
+		Storage:  storage,
+		Queue:    queue,
 	}
 }
 
@@ -37,6 +39,11 @@ func (uc *VideoUseCase) RequestUpload(userID string, fileName string, file multi
 	ext := filepath.Ext(fileName)
 	if ext != ".mp4" && ext != ".mkv" && ext != ".avi" {
 		return nil, fmt.Errorf("formato não suportado")
+	}
+
+	user, err := uc.UserRepo.FindByID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("usuário não encontrado")
 	}
 
 	uniqueName := fmt.Sprintf("%d_%s", time.Now().Unix(), fileName)
@@ -53,7 +60,7 @@ func (uc *VideoUseCase) RequestUpload(userID string, fileName string, file multi
 		return nil, err
 	}
 
-	if err := uc.Queue.SendMessage(video.ID); err != nil {
+	if err := uc.Queue.SendMessage(video.ID, user.Email); err != nil {
 		video.Status = entity.StatusError
 		video.ErrorMessage = "Falha ao enfileirar"
 		uc.Repo.Update(video)

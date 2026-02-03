@@ -1,6 +1,6 @@
 package service
 
-import "fiapx-api/internal/auth"
+import "hackaton-service-api/internal/auth"
 
 type TokenService struct{}
 

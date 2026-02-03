@@ -2,8 +2,8 @@ package usecase
 
 import (
 	"errors"
-	"fiapx-api/internal/entity"
-	"fiapx-api/internal/repository"
+	"hackaton-service-api/internal/entity"
+	"hackaton-service-api/internal/repository"
 )
 
 type TokenGenerator interface {
