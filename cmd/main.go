@@ -12,8 +12,19 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+    ginSwagger "github.com/swaggo/gin-swagger"
+	_ "hackaton-service-api/docs"
 )
 
+// @title FIAP X - API de Processamento de Vídeos
+// @version 1.0
+// @description API para upload e gerenciamento de processamento de vídeos.
+// @host localhost:8080
+// @BasePath /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func main() {
 
 	dbHost := getEnv("DB_HOST", "localhost")
@@ -59,6 +70,21 @@ func main() {
 	authHandler := handler.NewAuthHandler(userUC)
 
 	r := gin.Default()
+
+	r.GET("/healthz", func(c *gin.Context) {
+        c.JSON(200, gin.H{"status": "alive"})
+    })
+
+	r.GET("/ready", func(c *gin.Context) {
+        sqlDB, err := db.DB()
+        if err != nil || sqlDB.Ping() != nil {
+            c.JSON(503, gin.H{"status": "unready", "database": "down"})
+            return
+        }
+        c.JSON(200, gin.H{"status": "ready", "database": "up"})
+    })
+
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	setupRoutes(r, authHandler, videoHandler, authMiddleware)
 
 	fmt.Println("🚀 API rodando na porta 8080")

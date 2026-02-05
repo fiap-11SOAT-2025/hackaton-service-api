@@ -15,6 +15,16 @@ func NewVideoHandler(videoUC *usecase.VideoUseCase) *VideoHandler {
 	return &VideoHandler{VideoUC: videoUC}
 }
 
+// UploadVideo godoc
+// @Summary Realiza o upload de um vídeo
+// @Description Faz o upload de um arquivo de vídeo para processamento
+// @Tags Videos
+// @Accept multipart/form-data
+// @Produce json
+// @Security BearerAuth
+// @Param video formData file true "Arquivo de vídeo (.mp4, .mkv, .avi)"
+// @Success 202 {object} map[string]string
+// @Router /api/upload [post]
 func (h *VideoHandler) UploadVideo(c *gin.Context) {
 	userID := c.GetString("userID")
 
@@ -44,6 +54,14 @@ func (h *VideoHandler) UploadVideo(c *gin.Context) {
 	})
 }
 
+// ListVideos godoc
+// @Summary Lista vídeos do usuário
+// @Description Retorna todos os vídeos enviados pelo usuário logado
+// @Tags Videos
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {array} entity.Video
+// @Router /api/videos [get]
 func (h *VideoHandler) ListVideos(c *gin.Context) {
 	userID := c.GetString("userID")
 	
@@ -56,6 +74,18 @@ func (h *VideoHandler) ListVideos(c *gin.Context) {
 	c.JSON(http.StatusOK, videos)
 }
 
+// GetDownloadLink godoc
+// @Summary Gera link para download do vídeo processado
+// @Description Retorna uma URL assinada do S3 para baixar o arquivo ZIP com os frames. O vídeo deve estar com status 'DONE'.
+// @Tags Videos
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "ID do Vídeo"
+// @Success 200 {object} map[string]string "link: http://s3.url..."
+// @Failure 401 {object} map[string]string "Acesso negado"
+// @Failure 404 {object} map[string]string "Vídeo não encontrado"
+// @Failure 422 {object} map[string]string "Vídeo não está pronto"
+// @Router /api/videos/{id}/download [get]
 func (h *VideoHandler) GetDownloadLink(c *gin.Context) {
 	userID := c.GetString("userID")
 	videoID := c.Param("id")
