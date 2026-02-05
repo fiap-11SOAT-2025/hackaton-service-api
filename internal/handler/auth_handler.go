@@ -26,6 +26,14 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
+// Register godoc
+// @Summary Registra um novo usuário
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body RegisterRequest true "Dados do usuário"
+// @Success 201 {object} map[string]string
+// @Router /api/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -45,6 +53,15 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Usuário criado com sucesso"})
 }
 
+// Login godoc
+// @Summary Realiza login do usuário
+// @Description Autentica o usuário e retorna um token JWT
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body LoginRequest true "Credenciais de Login"
+// @Success 200 {object} map[string]string
+// @Router /api/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
