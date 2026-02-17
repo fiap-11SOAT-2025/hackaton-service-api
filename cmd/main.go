@@ -71,7 +71,7 @@ func main() {
 
 	r := gin.Default()
 
-	r.GET("/healthz", func(c *gin.Context) {
+	r.GET("/health", func(c *gin.Context) {
         c.JSON(200, gin.H{"status": "alive"})
     })
 
@@ -84,7 +84,7 @@ func main() {
         c.JSON(200, gin.H{"status": "ready", "database": "up"})
     })
 
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	r.GET("/swagger-ui/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	setupRoutes(r, authHandler, videoHandler, authMiddleware)
 
 	fmt.Println("🚀 API rodando na porta 8080")
