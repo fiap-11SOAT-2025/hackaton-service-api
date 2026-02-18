@@ -15,19 +15,30 @@ type AWSClientFactory struct {
 }
 
 func NewAWSClientFactory(ctx context.Context, region, endpoint, key, secret string) *AWSClientFactory {
-	cfg, err := config.LoadDefaultConfig(ctx,
+	// Opções básicas de carregamento
+	opts := []func(*config.LoadOptions) error{
 		config.WithRegion(region),
-		config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
+	}
+
+	// Configuração do Endpoint (para LocalStack)
+	if endpoint != "" {
+		opts = append(opts, config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
 			func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-				if endpoint != "" {
-					return aws.Endpoint{URL: endpoint, SigningRegion: region}, nil
-				}
-				return aws.Endpoint{}, &aws.EndpointNotFoundError{}
-			})),
-		config.WithCredentialsProvider(aws.CredentialsProviderFunc(func(ctx context.Context) (aws.Credentials, error) {
+				return aws.Endpoint{URL: endpoint, SigningRegion: region}, nil
+			},
+		)))
+	}
+
+	// CRITICAL FIX: Apenas forçar credenciais estáticas se elas forem fornecidas.
+	// Se key/secret forem vazios, o LoadDefaultConfig vai buscar automaticamente
+	// no ~/.aws/credentials ou nas variáveis de ambiente (incluindo o SESSION TOKEN).
+	if key != "" && secret != "" {
+		opts = append(opts, config.WithCredentialsProvider(aws.CredentialsProviderFunc(func(ctx context.Context) (aws.Credentials, error) {
 			return aws.Credentials{AccessKeyID: key, SecretAccessKey: secret}, nil
-		})),
-	)
+		})))
+	}
+
+	cfg, err := config.LoadDefaultConfig(ctx, opts...)
 	if err != nil {
 		log.Fatalf("Erro ao carregar configuração AWS: %v", err)
 	}
