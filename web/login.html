@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIAP X - Processador de Vídeos</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f0f2f5; margin: 0; }
+        .container { background: white; padding: 2.5rem; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 350px; text-align: center; }
+        
+        h1 { font-size: 1.2rem; color: #000000; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px; }
+        h2 { color: #333; margin-bottom: 20px; font-size: 1.5rem; }
+        
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+        button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 15px; font-weight: bold; transition: background 0.2s; }
+        button:hover { background: #0056b3; }
+        
+        .toggle { margin-top: 20px; font-size: 14px; color: #666; cursor: pointer; }
+        .toggle:hover { color: #007bff; text-decoration: underline; }
+        
+        .message { margin-top: 15px; padding: 10px; border-radius: 4px; font-size: 14px; display: none; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🎬 FIAP X</h2>
+        <h1>Processador de Vídeos</h1>
+        
+        <h2 id="formTitle">Login</h2>
+        
+        <input type="text" id="username" placeholder="Usuário" required>
+        
+        <input type="email" id="email" placeholder="E-mail" style="display:none;" required>
+        
+        <input type="password" id="password" placeholder="Senha" required>
+        
+        <input type="password" id="confirmPassword" placeholder="Confirme a Senha" style="display:none;" required>
+        
+        <button onclick="handleSubmit()" id="submitBtn">Entrar</button>
+
+        <div id="message" class="message"></div>
+        
+        <div class="toggle" onclick="toggleMode()" id="toggleBtn">
+            Não tem conta? <strong>Cadastre-se</strong>
+        </div>
+    </div>
+
+    <script>
+        let isLogin = true;
+
+        function toggleMode() {
+            isLogin = !isLogin;
+            document.getElementById('formTitle').innerText = isLogin ? 'Login' : 'Cadastro';
+            document.getElementById('submitBtn').innerText = isLogin ? 'Entrar' : 'Cadastrar';
+            document.getElementById('toggleBtn').innerHTML = isLogin ? 'Não tem conta? <strong>Cadastre-se</strong>' : 'Já tem conta? <strong>Faça Login</strong>';
+            document.getElementById('message').style.display = 'none';
+            
+            const displayMode = isLogin ? 'none' : 'block';
+            document.getElementById('email').style.display = displayMode;
+            document.getElementById('confirmPassword').style.display = displayMode;
+            
+            document.getElementById('confirmPassword').value = '';
+        }
+
+        async function handleSubmit() {
+            const usernameInput = document.getElementById('username').value;
+            const passwordInput = document.getElementById('password').value;
+            const emailInput = document.getElementById('email').value;
+            const confirmPasswordInput = document.getElementById('confirmPassword').value;
+            
+            if (!usernameInput || !passwordInput) {
+                showMessage("Preencha usuário e senha.", "error");
+                return;
+            }
+
+            if (!isLogin) {
+                if (!emailInput) {
+                    showMessage("Preencha o e-mail.", "error");
+                    return;
+                }
+   
+                if (passwordInput !== confirmPasswordInput) {
+                    showMessage("As senhas não coincidem!", "error");
+                    return;
+                }
+            }
+
+            const endpoint = isLogin ? '/api/login' : '/api/register';
+
+            const bodyData = { 
+                username: usernameInput, 
+                password: passwordInput 
+            };
+            
+            if (!isLogin) {
+                bodyData.email = emailInput;
+            }
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(bodyData)
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Ocorreu um erro');
+                }
+
+                if (isLogin) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('username', data.username);
+                    showMessage("Login realizado! Entrando...", "success");
+                    setTimeout(() => window.location.href = '/dashboard', 1000);
+                } else {
+                    showMessage("Usuário criado! Faça login agora.", "success");
+                    setTimeout(toggleMode, 2000);
+                }
+
+            } catch (error) {
+                showMessage(error.message, "error");
+            }
+        }
+
+        function showMessage(text, type) {
+            const msg = document.getElementById('message');
+            msg.innerText = text;
+            msg.className = `message ${type}`;
+            msg.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
