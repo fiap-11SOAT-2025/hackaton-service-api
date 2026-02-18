@@ -58,7 +58,7 @@ jobs:
       # Isso garante que pegamos a configuração mais recente (CPU, Memória, Vars de Ambiente)
       - name: Download task definition
         run: |
-          aws ecs describe-task-definition --task-definition hackaton-service --query taskDefinition > task-definition.json
+          aws ecs describe-task-definition --task-definition hackaton-task-family --query taskDefinition > task-definition.json
 
       # 5. Atualiza a Task Definition com a nova imagem Docker criada
       - name: Fill in the new image ID in the Amazon ECS task definition
