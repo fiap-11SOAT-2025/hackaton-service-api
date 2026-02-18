@@ -1,0 +1,79 @@
+name: Deploy to Amazon ECS
+
+on:
+  push:
+    branches:
+      - main  # Altere para 'develop' ou 'master' se for o caso
+
+env:
+  AWS_REGION: us-east-1                   # Sua região
+  ECR_REPOSITORY: hackaton-service-api    # Nome do repositório que você criou no ECR
+  ECS_SERVICE: hackaton-service           # Nome do serviço que você criou no ECS
+  ECS_CLUSTER: hackaton-cluster           # Nome do cluster que você criou no ECS
+  CONTAINER_NAME: hackaton-api            # Nome do container definido na sua Task Definition
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 1. Configura as credenciais da AWS (Secrets do GitHub)
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }} # Necessário para AWS Academy
+          aws-region: ${{ env.AWS_REGION }}
+
+      # 2. Faz login no Amazon ECR para poder enviar a imagem
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # 3. Constrói a imagem Docker e envia para o ECR
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # Constrói a imagem
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          
+          # Envia para o ECR da AWS
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          
+          # Salva o nome da imagem para o próximo passo usar
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      # 4. [OPÇÃO B] Baixa a Task Definition atual da AWS
+      # Isso garante que pegamos a configuração mais recente (CPU, Memória, Vars de Ambiente)
+      - name: Download task definition
+        run: |
+          aws ecs describe-task-definition --task-definition hackaton-service --query taskDefinition > task-definition.json
+
+      # 5. Atualiza a Task Definition com a nova imagem Docker criada
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json  # Usa o arquivo baixado no passo anterior
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.build-image.outputs.image }}
+
+      # 6. Faz o deploy da nova Task Definition no ECS
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
