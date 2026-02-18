@@ -32,8 +32,8 @@ func main() {
 	awsEndpoint := getEnv("AWS_ENDPOINT", "") 
 	
 	// Configurações de Recursos (Bucket e Fila)
-	awsBucket := getEnv("AWS_BUCKET", "fiap-videos")
-	awsQueueURL := getEnv("AWS_QUEUE_URL", "")
+	awsBucket := getEnv("AWS_BUCKET", "fiap-videos-hackaton-2026")
+	awsQueueURL := getEnv("AWS_QUEUE_URL", "https://sqs.us-east-1.amazonaws.com/629000537837/video-processing-queue")
 
 	ctx := context.TODO()
 
