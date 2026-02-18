@@ -26,53 +26,59 @@ import (
 // @in header
 // @name Authorization
 func main() {
-	// 1. Configurações de Ambiente para acesso à AWS
-	// Para rodar sem LocalStack e sem Docker, garanta que AWS_ACCESS_KEY_ID e AWS_SECRET_ACCESS_KEY
-	// estejam exportadas no seu terminal.
+	// 1. Configurações de Ambiente
 	awsRegion := getEnv("AWS_REGION", "us-east-1")
-	awsEndpoint := getEnv("AWS_ENDPOINT", "") // Vazio para conectar diretamente à AWS oficial
-	awsAccessKeyID := getEnv("AWS_ACCESS_KEY_ID", "")
-	awsSecretAccessKey := getEnv("AWS_SECRET_ACCESS_KEY", "")
+	// Se AWS_ENDPOINT estiver vazio, o SDK conecta na AWS real. Se tiver valor, usa (ex: LocalStack)
+	awsEndpoint := getEnv("AWS_ENDPOINT", "") 
+	
+	// Configurações de Recursos (Bucket e Fila)
 	awsBucket := getEnv("AWS_BUCKET", "fiap-videos")
 	awsQueueURL := getEnv("AWS_QUEUE_URL", "")
 
 	ctx := context.TODO()
+
+	// [CORREÇÃO CRÍTICA]
+	// Passamos strings vazias "" para Key e Secret.
+	// Isso obriga o SDK a ler o ambiente sozinho, garantindo que ele
+	// pegue o AWS_SESSION_TOKEN corretamente.
 	awsFactory := service.NewAWSClientFactory(
 		ctx,
 		awsRegion,
 		awsEndpoint,
-		awsAccessKeyID,
-		awsSecretAccessKey,
+		"", // Deixe vazio para usar Auto-Discovery (Environment/Roles)
+		"", // Deixe vazio para usar Auto-Discovery (Environment/Roles)
 	)
 
 	// 2. Busca credenciais do Banco de Dados no Secrets Manager
-	// Como você quer usar o RDS remoto, o segredo fornecerá o HOST, USER e PASSWORD corretos.
 	secretName := "database-credentials20260218011702627300000001"
 	var dbHost, dbUser, dbPassword, dbName string
 
 	creds, err := service.GetDatabaseSecrets(awsFactory, secretName)
 	if err == nil {
-		fmt.Println("✅ Conectando ao RDS remoto via AWS Secrets Manager")
+		fmt.Println("✅ Credenciais carregadas do AWS Secrets Manager")
 		dbHost = creds.Host
 		dbUser = creds.Username
 		dbPassword = creds.Password
 		dbName = creds.Name
 	} else {
-		// Log de erro caso não consiga buscar as credenciais da nuvem
-		fmt.Printf("❌ Falha crítica: Não foi possível carregar os segredos da AWS: %v\n", err)
-		// Caso ainda queira um fallback local por segurança:
+		fmt.Printf("⚠️ Erro ao acessar secret (%v). Usando variáveis locais.\n", err)
+		// Fallback para variáveis de ambiente (útil se o Secrets Manager falhar)
 		dbHost = getEnv("DB_HOST", "localhost")
 		dbUser = getEnv("DB_USER", "user")
 		dbPassword = getEnv("DB_PASSWORD", "password")
 		dbName = getEnv("DB_NAME", "fiapx_db")
 	}
 
-	// 3. Inicialização do Banco de Dados (RDS Remoto)
-	// Certifique-se de que o Security Group do RDS permite conexão externa (Porta 5432) do seu IP.
+	// 3. Inicialização do Banco de Dados
+	// Certifique-se que seu postgres.go está com sslmode=require
 	db := database.SetupDatabase(dbHost, dbUser, dbPassword, dbName)
+	if db == nil {
+		// Se o banco não conectar, não adianta continuar. Encerra com erro.
+		panic("❌ Falha crítica: Banco de dados não inicializado.")
+	}
 	db.AutoMigrate(&entity.User{}, &entity.Video{})
 
-	// 4. Inicialização dos Serviços (S3 e SQS)
+	// 4. Inicialização dos Serviços e Repositórios
 	storageService := service.NewStorageService(
 		awsFactory.NewS3Client(),
 		awsFactory.NewSQSClient(),
@@ -95,7 +101,6 @@ func main() {
 	// 6. Configuração do Servidor Gin
 	r := gin.Default()
 
-	// Endpoints de Saúde
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "alive"})
 	})
@@ -109,11 +114,10 @@ func main() {
 		c.JSON(200, gin.H{"status": "ready", "database": "up"})
 	})
 
-	// Swagger e Rotas
 	r.GET("/swagger-ui/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	setupRoutes(r, authHandler, videoHandler, authMiddleware)
 
-	fmt.Printf("🚀 API iniciada com sucesso. Conectada ao banco: %s em %s\n", dbName, dbHost)
+	fmt.Printf("🚀 API rodando na porta 8080. Banco: %s\n", dbHost)
 	r.Run(":8080")
 }
 

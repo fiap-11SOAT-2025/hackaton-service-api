@@ -3,36 +3,31 @@ FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
-# Instala ferramentas básicas necessárias
+# Instala git para baixar dependências
 RUN apk add --no-cache git
 
-# Baixa as dependências (Cache Layer)
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copia o código fonte
 COPY . .
 
-# Compila o binário estático
-# CGO_ENABLED=0 garante que não dependa de bibliotecas C do sistema
+# Compila o binário
 RUN CGO_ENABLED=0 GOOS=linux go build -o hackaton-service-api cmd/main.go
 
-# Etapa 2: Runner (Imagem Final Leve)
+# Etapa 2: Runner (Imagem Final)
 FROM alpine:latest
 
 WORKDIR /app
 
-# Instala certificados CA (necessário para AWS/HTTPS)
-RUN apk --no-cache add ca-certificates
+# [CORREÇÃO] Instala certificados (para AWS/SSL) E tzdata (para TimeZone)
+RUN apk --no-cache add ca-certificates tzdata
 
-# Copia o binário da etapa anterior
+# Copia o binário
 COPY --from=builder /app/hackaton-service-api .
 
-# IMPORTANTE: Copia os arquivos de frontend (HTML/CSS)
+# Copia o frontend
 COPY --from=builder /app/web ./web
 
-# Expondo a porta padrão da API
 EXPOSE 8080
 
-# Comando de inicialização
 CMD ["./hackaton-service-api"]
