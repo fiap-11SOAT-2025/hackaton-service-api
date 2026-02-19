@@ -8,7 +8,7 @@ on:
 env:
   AWS_REGION: us-east-1                   # Sua região
   ECR_REPOSITORY: fiap-app-ms-service-api    # Nome do repositório que você criou no ECR
-  ECS_SERVICE: hackaton-task-family-service-uv8ksolo         # Nome do serviço que você criou no ECS
+  ECS_SERVICE: hackaton-service        # Nome do serviço que você criou no ECS
   ECS_CLUSTER: hackaton-cluster           # Nome do cluster que você criou no ECS
   CONTAINER_NAME: hackaton-api            # Nome do container definido na sua Task Definition
 
