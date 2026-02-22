@@ -26,59 +26,51 @@ import (
 // @in header
 // @name Authorization
 func main() {
-	// 1. Configurações de Ambiente
+
 	awsRegion := getEnv("AWS_REGION", "us-east-1")
-	// Se AWS_ENDPOINT estiver vazio, o SDK conecta na AWS real. Se tiver valor, usa (ex: LocalStack)
 	awsEndpoint := getEnv("AWS_ENDPOINT", "") 
-	
-	// Configurações de Recursos (Bucket e Fila)
+
 	awsBucket := getEnv("AWS_BUCKET", "fiap-videos-aldo-hackaton-2025")
 	awsQueueURL := getEnv("AWS_QUEUE_URL", "https://sqs.us-east-1.amazonaws.com/629000537837/video-processing-queue")
 
 	ctx := context.TODO()
 
-	// [CORREÇÃO CRÍTICA]
-	// Passamos strings vazias "" para Key e Secret.
-	// Isso obriga o SDK a ler o ambiente sozinho, garantindo que ele
-	// pegue o AWS_SESSION_TOKEN corretamente.
 	awsFactory := service.NewAWSClientFactory(
 		ctx,
 		awsRegion,
 		awsEndpoint,
-		"", // Deixe vazio para usar Auto-Discovery (Environment/Roles)
-		"", // Deixe vazio para usar Auto-Discovery (Environment/Roles)
+		"",
+		"",
 	)
 
-	// 2. Busca credenciais do Banco de Dados no Secrets Manager
-	secretName := "database-credentials20260218011702627300000001"
-	var dbHost, dbUser, dbPassword, dbName string
+	secretName := getEnv("DB_SECRET_NAME", "database-credentials20260218011702627300000001")
+	var dbHost, dbUser, dbPassword, dbName, dbSslmode string
 
 	creds, err := service.GetDatabaseSecrets(awsFactory, secretName)
+
 	if err == nil {
 		fmt.Println("✅ Credenciais carregadas do AWS Secrets Manager")
 		dbHost = creds.Host
 		dbUser = creds.Username
 		dbPassword = creds.Password
 		dbName = creds.Name
+		dbSslmode = creds.Sslmode
 	} else {
 		fmt.Printf("⚠️ Erro ao acessar secret (%v). Usando variáveis locais.\n", err)
-		// Fallback para variáveis de ambiente (útil se o Secrets Manager falhar)
 		dbHost = getEnv("DB_HOST", "localhost")
 		dbUser = getEnv("DB_USER", "user")
 		dbPassword = getEnv("DB_PASSWORD", "password")
 		dbName = getEnv("DB_NAME", "fiapx_db")
+		dbSslmode = getEnv("DB_SSL_MODE", "disable")
 	}
 
-	// 3. Inicialização do Banco de Dados
-	// Certifique-se que seu postgres.go está com sslmode=require
-	db := database.SetupDatabase(dbHost, dbUser, dbPassword, dbName)
+	// Certifique-se que seu postgres.go está com sslmode=require para AWS e sslmode=disable para Local 
+	db := database.SetupDatabase(dbHost, dbUser, dbPassword, dbName, dbSslmode)
 	if db == nil {
-		// Se o banco não conectar, não adianta continuar. Encerra com erro.
 		panic("❌ Falha crítica: Banco de dados não inicializado.")
 	}
 	db.AutoMigrate(&entity.User{}, &entity.Video{})
 
-	// 4. Inicialização dos Serviços e Repositórios
 	storageService := service.NewStorageService(
 		awsFactory.NewS3Client(),
 		awsFactory.NewSQSClient(),
@@ -90,7 +82,6 @@ func main() {
 	videoRepo := database.NewVideoRepository(db)
 	userRepo := database.NewUserRepository(db)
 
-	// 5. Casos de Uso e Handlers
 	videoUC := usecase.NewVideoUseCase(videoRepo, userRepo, storageService, storageService)
 	userUC := usecase.NewUserUseCase(userRepo, tokenService)
 
@@ -98,7 +89,6 @@ func main() {
 	videoHandler := handler.NewVideoHandler(videoUC)
 	authHandler := handler.NewAuthHandler(userUC)
 
-	// 6. Configuração do Servidor Gin
 	r := gin.Default()
 
 	r.GET("/health", func(c *gin.Context) {

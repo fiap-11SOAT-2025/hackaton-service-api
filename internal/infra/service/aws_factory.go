@@ -15,12 +15,10 @@ type AWSClientFactory struct {
 }
 
 func NewAWSClientFactory(ctx context.Context, region, endpoint, key, secret string) *AWSClientFactory {
-	// Opções básicas de carregamento
 	opts := []func(*config.LoadOptions) error{
 		config.WithRegion(region),
 	}
 
-	// Configuração do Endpoint (para LocalStack)
 	if endpoint != "" {
 		opts = append(opts, config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
 			func(service, region string, options ...interface{}) (aws.Endpoint, error) {
@@ -29,9 +27,6 @@ func NewAWSClientFactory(ctx context.Context, region, endpoint, key, secret stri
 		)))
 	}
 
-	// CRITICAL FIX: Apenas forçar credenciais estáticas se elas forem fornecidas.
-	// Se key/secret forem vazios, o LoadDefaultConfig vai buscar automaticamente
-	// no ~/.aws/credentials ou nas variáveis de ambiente (incluindo o SESSION TOKEN).
 	if key != "" && secret != "" {
 		opts = append(opts, config.WithCredentialsProvider(aws.CredentialsProviderFunc(func(ctx context.Context) (aws.Credentials, error) {
 			return aws.Credentials{AccessKeyID: key, SecretAccessKey: secret}, nil
