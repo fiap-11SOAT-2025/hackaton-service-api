@@ -8,11 +8,12 @@ import (
 )
 
 type DbCredentials struct {
-	Host     string `json:"DB_HOST"`
-	Name     string `json:"DB_NAME"`
-	Password string `json:"DB_PASSWORD"`
-	Port     string `json:"DB_PORT"`
 	Username string `json:"DB_USERNAME"`
+	Password string `json:"DB_PASSWORD"`
+	Host     string `json:"DB_HOST"`
+	Name   	 string `json:"DB_NAME"`
+	Port     string `json:"DB_PORT"`
+	Sslmode  string `json:"DB_SSL_MODE"`
 }
 
 func GetDatabaseSecrets(f *AWSClientFactory, secretName string) (*DbCredentials, error) {

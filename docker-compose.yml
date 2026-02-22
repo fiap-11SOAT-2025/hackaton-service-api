@@ -26,13 +26,18 @@ services:
       - "4566:4566"            # Porta única para todos os serviços AWS
       - "4510-4559:4510-4559"  # Range de portas para serviços externos
     environment:
-      - SERVICES=s3,sqs,ses        # Ativar apenas S3, SQS e SES
+      - SERVICES=s3,sqs,sns,secretsmanager,ses
       - DEFAULT_REGION=us-east-1
       - DEBUG=1
       - DATA_DIR=/tmp/localstack/data
     volumes:
       - "./scripts/init-localstack.sh:/etc/localstack/init/ready.d/init-aws.sh" # Script de inicialização
       - localstack_data:/var/lib/localstack
+    healthcheck:
+      test: ["CMD-SHELL", "awslocal secretsmanager describe-secret --secret-id db-credentials"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
 
   # 3. API
   api:
@@ -46,6 +51,8 @@ services:
       - DB_USER=user
       - DB_PASSWORD=password
       - DB_NAME=fiapx_db
+      - DB_SSL_MODE=disable
+      - DB_SECRET_NAME=db-credentials
       - AWS_REGION=us-east-1
       - AWS_ENDPOINT=http://localstack:4566
       - AWS_ACCESS_KEY_ID=teste
@@ -56,7 +63,7 @@ services:
       db:
         condition: service_healthy
       localstack:
-        condition: service_started
+        condition: service_healthy
 
   # 4. Worker (Processador) 
   worker:
@@ -68,6 +75,8 @@ services:
       - DB_USER=user
       - DB_PASSWORD=password
       - DB_NAME=fiapx_db
+      - DB_SECRET_NAME=db-credentials
+      - DB_SSL_MODE=disable
       - AWS_REGION=us-east-1
       - AWS_ENDPOINT=http://localstack:4566
       - AWS_ACCESS_KEY_ID=teste
@@ -75,11 +84,12 @@ services:
       - AWS_QUEUE_URL=http://localstack:4566/000000000000/video-processing-queue
       - AWS_BUCKET=fiap-videos
       - EMAIL_IDENTITY=no-reply@fiapx.com
+      - AWS_SNS_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:video-notifications
     depends_on:
       db:
         condition: service_healthy
       localstack:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   postgres_data:
