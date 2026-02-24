@@ -30,8 +30,8 @@ func main() {
 	awsRegion := getEnv("AWS_REGION", "us-east-1")
 	awsEndpoint := getEnv("AWS_ENDPOINT", "") 
 
-	awsBucket := getEnv("AWS_BUCKET", "fiap-videos-aldo-hackaton-2025")
-	awsQueueURL := getEnv("AWS_QUEUE_URL", "https://sqs.us-east-1.amazonaws.com/629000537837/video-processing-queue")
+	awsBucket := getEnv("AWS_BUCKET", "fiap-videos-fiap-hackaton-2026-go")
+	awsQueueURL := getEnv("AWS_QUEUE_URL", "https://sqs.us-east-1.amazonaws.com/225022246839/video-processing-queue")
 
 	ctx := context.TODO()
 
